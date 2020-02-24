@@ -39,14 +39,15 @@ public class VersionedChecksummedBytes implements Serializable, Cloneable, Compa
 
     protected VersionedChecksummedBytes(String encoded) throws AddressFormatException {
         byte[] versionAndDataBytes = Base58.decodeChecked(encoded);
-        byte versionByte = versionAndDataBytes[0];
-        version = versionByte & 0xFF;
-        bytes = new byte[versionAndDataBytes.length - 1];
-        System.arraycopy(versionAndDataBytes, 1, bytes, 0, versionAndDataBytes.length - 1);
+        byte versionByte1 = versionAndDataBytes[0];
+        byte versionByte2 = versionAndDataBytes[1];
+        version = ((versionByte1 & 0xFF) << 8) & (versionByte2 & 0xFF);
+        bytes = new byte[versionAndDataBytes.length - 2];
+        System.arraycopy(versionAndDataBytes, 2, bytes, 0, versionAndDataBytes.length - 2);
     }
 
     protected VersionedChecksummedBytes(int version, byte[] bytes) {
-        checkArgument(version >= 0 && version < 256);
+        checkArgument(version >= 0 && version < 65536);
         this.version = version;
         this.bytes = bytes;
     }
@@ -58,11 +59,12 @@ public class VersionedChecksummedBytes implements Serializable, Cloneable, Compa
     public final String toBase58() {
         // A stringified buffer is:
         //   1 byte version + data bytes + 4 bytes check code (a truncated hash)
-        byte[] addressBytes = new byte[1 + bytes.length + 4];
-        addressBytes[0] = (byte) version;
-        System.arraycopy(bytes, 0, addressBytes, 1, bytes.length);
-        byte[] checksum = Sha256Hash.hashTwice(addressBytes, 0, bytes.length + 1);
-        System.arraycopy(checksum, 0, addressBytes, bytes.length + 1, 4);
+        byte[] addressBytes = new byte[2 + bytes.length + 4];
+        addressBytes[0] = (byte) ((version >> 8) & 0xFF);
+        addressBytes[1] = (byte) (version & 0xFF);
+        System.arraycopy(bytes, 0, addressBytes, 2, bytes.length);
+        byte[] checksum = Sha256Hash.hashTwice(addressBytes, 0, bytes.length + 2);
+        System.arraycopy(checksum, 0, addressBytes, bytes.length + 2, 4);
         return Base58.encode(addressBytes);
     }
 
@@ -111,7 +113,7 @@ public class VersionedChecksummedBytes implements Serializable, Cloneable, Compa
      * Returns the "version" or "header" byte: the first byte of the data. This is used to disambiguate what the
      * contents apply to, for example, which network the key or address is valid on.
      *
-     * @return A positive number between 0 and 255.
+     * @return A positive number between 0 and 65536.
      */
     public int getVersion() {
         return version;
