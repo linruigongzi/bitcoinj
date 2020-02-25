@@ -41,7 +41,7 @@ public class VersionedChecksummedBytes implements Serializable, Cloneable, Compa
         byte[] versionAndDataBytes = Base58.decodeChecked(encoded);
         byte versionByte1 = versionAndDataBytes[0];
         byte versionByte2 = versionAndDataBytes[1];
-        version = ((versionByte1 & 0xFF) << 8) & (versionByte2 & 0xFF);
+        version = ((versionByte1 & 0xFF) << 8) | (versionByte2 & 0xFF);
         bytes = new byte[versionAndDataBytes.length - 2];
         System.arraycopy(versionAndDataBytes, 2, bytes, 0, versionAndDataBytes.length - 2);
     }
