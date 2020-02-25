@@ -25,9 +25,13 @@
         <version>0.14.7</version>
     </parent>
 
-    <artifactId>bitcoinx-core</artifactId>
+
 
     <name>bitcoinx</name>
+    <artifactId>bitcoinx-core</artifactId>
+    <groupId>io.github.linruigongzi</groupId>
+    <version>0.14.7</version>
+
     <description>fork from bitcoinj support double bytes address header</description>
 
     <packaging>jar</packaging>
