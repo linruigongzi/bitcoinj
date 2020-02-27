@@ -27,16 +27,16 @@
 
 
 
-    <name>bitcoinx</name>
-    <artifactId>bitcoinx-core</artifactId>
-    <groupId>io.github.linruigongzi</groupId>
+    <name>bitcoinz</name>
+    <artifactId>bitcoinz-core</artifactId>
+    <groupId>io.github.reason</groupId>
     <version>0.14.7</version>
 
-    <description>fork from bitcoinj support double bytes address header</description>
+    <description>fork from bitcoinj support zcash</description>
 
     <packaging>jar</packaging>
 
-    <url>https://github.com/linruigongzi/bitcoinx</url>
+    <url>https://github.com/reason/bitcoinz</url>
 
     <licenses>
         <license>
@@ -49,8 +49,8 @@
     <!-- Dummy block to make Maven Central happy: authors list is in AUTHORS -->
     <developers>
         <developer>
-            <name>linruigongzi</name>
-            <email>apple.lrs@google.com</email>
+            <name>reason</name>
+            <email>reason@google.com</email>
         </developer>
     </developers>
 
@@ -353,6 +353,11 @@
             <artifactId>junit</artifactId>
             <version>4.12</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.rfksystems</groupId>
+            <artifactId>blake2b</artifactId>
+            <version>1.0.0</version>
         </dependency>
         <dependency>
             <groupId>org.easymock</groupId>

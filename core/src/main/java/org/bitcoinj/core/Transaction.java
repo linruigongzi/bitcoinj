@@ -17,6 +17,7 @@
 
 package org.bitcoinj.core;
 
+import com.rfksystems.blake2b.Blake2b;
 import org.bitcoinj.core.TransactionConfidence.ConfidenceType;
 import org.bitcoinj.crypto.TransactionSignature;
 import org.bitcoinj.script.Script;
@@ -1064,6 +1065,202 @@ public class Transaction extends ChildMessage {
         } catch (IOException e) {
             throw new RuntimeException(e);  // Cannot happen.
         }
+    }
+
+
+    public synchronized Sha256Hash hashForWitnessSignature(
+            int inputIndex,
+            byte[] scriptCode,
+            Coin prevValue,
+            SigHash type,
+            boolean anyoneCanPay) {
+        int sigHash = TransactionSignature.calcSigHashValue(type, anyoneCanPay);
+        return hashForWitnessSignature(inputIndex, scriptCode, prevValue, (byte) sigHash);
+    }
+
+    /**
+     * <p>Calculates a signature hash, that is, a hash of a simplified form of the transaction. How exactly the transaction
+     * is simplified is specified by the type and anyoneCanPay parameters.</p>
+     *
+     * <p>This is a low level API and when using the regular {@link Wallet} class you don't have to call this yourself.
+     * When working with more complex transaction types and contracts, it can be necessary. When signing a Witness output
+     * the scriptCode should be the script encoded into the scriptSig field, for normal transactions, it's the
+     * scriptPubKey of the output you're signing for. (See BIP143: https://github.com/bitcoin/bips/blob/master/bip-0143.mediawiki)</p>
+     *
+     * @param inputIndex   input the signature is being calculated for. Tx signatures are always relative to an input.
+     * @param scriptCode   the script that should be in the given input during signing.
+     * @param prevValue    the value of the coin being spent
+     * @param type         Should be SigHash.ALL
+     * @param anyoneCanPay should be false.
+     */
+    public synchronized Sha256Hash hashForWitnessSignature(
+            int inputIndex,
+            Script scriptCode,
+            Coin prevValue,
+            SigHash type,
+            boolean anyoneCanPay) {
+        return hashForWitnessSignature(inputIndex, scriptCode.getProgram(), prevValue, type, anyoneCanPay);
+    }
+
+    public synchronized Sha256Hash hashForWitnessSignature(
+            int inputIndex,
+            byte[] scriptCode,
+            Coin prevValue,
+            byte sigHashType){
+        ByteArrayOutputStream bos = new UnsafeByteArrayOutputStream(length == UNKNOWN_LENGTH ? 256 : length + 4);
+        try {
+            byte[] hashPrevouts = new byte[32];
+            byte[] hashSequence = new byte[32];
+            byte[] hashOutputs = new byte[32];
+
+            // more
+            byte[] hashJoinSplits = new byte[32];
+            byte[] hashShieldedSpends = new byte[32];
+            byte[] hashShieldedOutputs = new byte[32];
+
+            int basicSigHashType = sigHashType & 0x1f;
+            boolean anyoneCanPay = (sigHashType & SigHash.ANYONECANPAY.value) == SigHash.ANYONECANPAY.value;
+            boolean signAll = (basicSigHashType != SigHash.SINGLE.value) && (basicSigHashType != SigHash.NONE.value);
+
+            if (!anyoneCanPay) {
+                ByteArrayOutputStream bosHashPrevouts = new UnsafeByteArrayOutputStream(256);
+                for (int i = 0; i < this.inputs.size(); ++i) {
+                    bosHashPrevouts.write(this.inputs.get(i).getOutpoint().getHash().getReversedBytes());
+                    uint32ToByteStreamLE(this.inputs.get(i).getOutpoint().getIndex(), bosHashPrevouts);
+                }
+                hashPrevouts = Sha256Hash.hashTwice(bosHashPrevouts.toByteArray());
+            }
+
+            if (!anyoneCanPay && signAll) {
+                ByteArrayOutputStream bosSequence = new UnsafeByteArrayOutputStream(256);
+                for (int i = 0; i < this.inputs.size(); ++i) {
+                    uint32ToByteStreamLE(this.inputs.get(i).getSequenceNumber(), bosSequence);
+                }
+                hashSequence = Sha256Hash.hashTwice(bosSequence.toByteArray());
+            }
+
+            if (signAll) {
+                ByteArrayOutputStream bosHashOutputs = new UnsafeByteArrayOutputStream(256);
+                for (int i = 0; i < this.outputs.size(); ++i) {
+                    uint64ToByteStreamLE(
+                            BigInteger.valueOf(this.outputs.get(i).getValue().getValue()),
+                            bosHashOutputs
+                    );
+                    bosHashOutputs.write(new VarInt(this.outputs.get(i).getScriptBytes().length).encode());
+                    bosHashOutputs.write(this.outputs.get(i).getScriptBytes());
+                }
+                hashOutputs = Sha256Hash.hashTwice(bosHashOutputs.toByteArray());
+            } else if (basicSigHashType == SigHash.SINGLE.value && inputIndex < outputs.size()) {
+                ByteArrayOutputStream bosHashOutputs = new UnsafeByteArrayOutputStream(256);
+                uint64ToByteStreamLE(
+                        BigInteger.valueOf(this.outputs.get(inputIndex).getValue().getValue()),
+                        bosHashOutputs
+                );
+                bosHashOutputs.write(new VarInt(this.outputs.get(inputIndex).getScriptBytes().length).encode());
+                bosHashOutputs.write(this.outputs.get(inputIndex).getScriptBytes());
+                hashOutputs = Sha256Hash.hashTwice(bosHashOutputs.toByteArray());
+            }
+
+            // fOverwintered
+            long header = version | 1 << 31;
+            uint32ToByteStreamLE(header, bos);
+
+            // SIGVERSION_SAPLING
+            long versionGroupId = 2;
+            uint32ToByteStreamLE(versionGroupId, bos);
+
+            bos.write(hashPrevouts);
+            bos.write(hashSequence);
+
+            bos.write(hashOutputs);
+            bos.write(hashJoinSplits);
+
+            bos.write(hashShieldedSpends);
+            bos.write(hashShieldedOutputs);
+
+            uint32ToByteStreamLE(this.lockTime, bos);
+
+
+            // ExpiryHeight 0
+            long expiryHeight = 0;
+            uint32ToByteStreamLE(expiryHeight, bos);
+
+            // valueBalance
+            long valueBalance = 0;
+            int64ToByteStreamLE(valueBalance, bos);
+
+
+            uint32ToByteStreamLE(0x000000ff & sigHashType, bos);
+
+            bos.write(inputs.get(inputIndex).getOutpoint().getHash().getReversedBytes());
+            uint32ToByteStreamLE(inputs.get(inputIndex).getOutpoint().getIndex(), bos);
+            bos.write(scriptCode);
+            uint64ToByteStreamLE(BigInteger.valueOf(prevValue.getValue()), bos);
+            uint32ToByteStreamLE(inputs.get(inputIndex).getSequenceNumber(), bos);
+
+            // bos.write(hashOutputs);
+            // uint32ToByteStreamLE(this.lockTime, bos);
+            // uint32ToByteStreamLE(0x000000ff & sigHashType, bos);
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);  // Cannot happen.
+        }
+
+
+        byte[] personalization = new byte[16];
+        byte[] prefix = "ZcashSigHash".getBytes();
+        byte[] leConsensusBranchId = {(byte)0x76, (byte)0xb8, (byte)0x09, (byte) 0xbb};
+
+
+        System.arraycopy(prefix, 0, personalization , 0, personalization.length);
+        System.arraycopy(leConsensusBranchId, 0, personalization , 12, leConsensusBranchId.length);
+
+
+        Blake2b blake2b = new Blake2b(null, 32, null, personalization);
+        blake2b.update(bos.toByteArray(), 0, bos.toByteArray().length);
+
+
+        byte[] digest = new byte[blake2b.getByteLength()];
+        blake2b.digest(digest, 0);
+        return Sha256Hash.wrap(digest);
+
+//        return Sha256Hash.twiceOf(bos.toByteArray());
+    }
+
+
+    public void zcashSerializeToStream(OutputStream stream) throws IOException {
+        long header = version | 1 << 31;
+        uint32ToByteStreamLE(header, stream);
+
+        // SIGVERSION_SAPLING
+        long versionGroupId = 2;
+        uint32ToByteStreamLE(versionGroupId, stream);
+
+        stream.write(new VarInt(inputs.size()).encode());
+        for (TransactionInput in : inputs)
+            in.bitcoinSerialize(stream);
+        stream.write(new VarInt(outputs.size()).encode());
+        for (TransactionOutput out : outputs)
+            out.bitcoinSerialize(stream);
+        uint32ToByteStreamLE(lockTime, stream);
+
+        // ExpiryHeight 0
+        long expiryHeight = 0;
+        uint32ToByteStreamLE(expiryHeight, stream);
+
+        // valueBalance
+        long valueBalance = 0;
+        uint32ToByteStreamLE(valueBalance, stream);
+        // vShieldedSpend
+        stream.write(new VarInt(0).encode());
+        // vShieldedOutput
+        stream.write(new VarInt(0).encode());
+
+        // joinSplitPubKey
+        stream.write(new VarInt(0).encode());
+//        auto os = WithVersion(&s, static_cast<int>(header));
+//        ::SerReadWrite(os, *const_cast<std::vector<JSDescription>*>(&vJoinSplit), ser_action);
+
     }
 
     @Override
