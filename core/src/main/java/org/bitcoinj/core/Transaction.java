@@ -1209,7 +1209,8 @@ public class Transaction extends ChildMessage {
 
         byte[] personalization = new byte[16];
         byte[] prefix = "ZcashSigHash".getBytes();
-        byte[] leConsensusBranchId = {(byte)0x76, (byte)0xb8, (byte)0x09, (byte) 0xbb};
+        // Blossom 0x2bb40e60
+        byte[] leConsensusBranchId = {(byte)0x60, (byte)0x0e, (byte)0xb4, (byte) 0x2b};
 
 
         System.arraycopy(prefix, 0, personalization , 0, personalization.length);
