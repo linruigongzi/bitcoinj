@@ -29,7 +29,7 @@
 
     <name>bitcoinz</name>
     <artifactId>bitcoinz-core</artifactId>
-    <groupId>io.github.reason</groupId>
+    <groupId>io.github.zcash</groupId>
     <version>0.14.7</version>
 
     <description>fork from bitcoinj support zcash</description>
@@ -49,8 +49,8 @@
     <!-- Dummy block to make Maven Central happy: authors list is in AUTHORS -->
     <developers>
         <developer>
-            <name>reason</name>
-            <email>reason@google.com</email>
+            <name>zcash</name>
+            <email>zcash@google.com</email>
         </developer>
     </developers>
 

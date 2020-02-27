@@ -199,7 +199,7 @@ public class Transaction extends ChildMessage {
 
     public Transaction(NetworkParameters params) {
         super(params);
-        version = 1;
+        version = 4;
         inputs = new ArrayList<TransactionInput>();
         outputs = new ArrayList<TransactionOutput>();
         // We don't initialize appearsIn deliberately as it's only useful for transactions stored in the wallet.
@@ -1165,8 +1165,8 @@ public class Transaction extends ChildMessage {
             long header = version | 1 << 31;
             uint32ToByteStreamLE(header, bos);
 
-            // SIGVERSION_SAPLING
-            long versionGroupId = 2;
+            // SAPLING_VERSION_GROUP_ID
+            long versionGroupId = 0x892F2085;
             uint32ToByteStreamLE(versionGroupId, bos);
 
             bos.write(hashPrevouts);
@@ -1187,7 +1187,7 @@ public class Transaction extends ChildMessage {
 
             // valueBalance
             long valueBalance = 0;
-            int64ToByteStreamLE(valueBalance, bos);
+            uint64ToByteStreamLE(BigInteger.valueOf(valueBalance), bos);
 
 
             uint32ToByteStreamLE(0x000000ff & sigHashType, bos);
@@ -1213,7 +1213,7 @@ public class Transaction extends ChildMessage {
         byte[] leConsensusBranchId = {(byte)0x60, (byte)0x0e, (byte)0xb4, (byte) 0x2b};
 
 
-        System.arraycopy(prefix, 0, personalization , 0, personalization.length);
+        System.arraycopy(prefix, 0, personalization , 0, prefix.length);
         System.arraycopy(leConsensusBranchId, 0, personalization , 12, leConsensusBranchId.length);
 
 
@@ -1221,20 +1221,20 @@ public class Transaction extends ChildMessage {
         blake2b.update(bos.toByteArray(), 0, bos.toByteArray().length);
 
 
-        byte[] digest = new byte[blake2b.getByteLength()];
+        byte[] digest = new byte[blake2b.getDigestSize()];
         blake2b.digest(digest, 0);
         return Sha256Hash.wrap(digest);
 
 //        return Sha256Hash.twiceOf(bos.toByteArray());
     }
 
-
-    public void zcashSerializeToStream(OutputStream stream) throws IOException {
-        long header = version | 1 << 31;
+    @Override
+    public void bitcoinSerializeToStream(OutputStream stream) throws IOException {
+        long header = version | (1 << 31);
         uint32ToByteStreamLE(header, stream);
 
-        // SIGVERSION_SAPLING
-        long versionGroupId = 2;
+        // SAPLING_VERSION_GROUP_ID
+        long versionGroupId = 0x892F2085;
         uint32ToByteStreamLE(versionGroupId, stream);
 
         stream.write(new VarInt(inputs.size()).encode());
@@ -1251,30 +1251,30 @@ public class Transaction extends ChildMessage {
 
         // valueBalance
         long valueBalance = 0;
-        uint32ToByteStreamLE(valueBalance, stream);
+        uint64ToByteStreamLE(BigInteger.valueOf(valueBalance), stream);
         // vShieldedSpend
         stream.write(new VarInt(0).encode());
         // vShieldedOutput
         stream.write(new VarInt(0).encode());
 
-        // joinSplitPubKey
+        // vJoinSplit
         stream.write(new VarInt(0).encode());
 //        auto os = WithVersion(&s, static_cast<int>(header));
 //        ::SerReadWrite(os, *const_cast<std::vector<JSDescription>*>(&vJoinSplit), ser_action);
 
     }
 
-    @Override
-    protected void bitcoinSerializeToStream(OutputStream stream) throws IOException {
-        uint32ToByteStreamLE(version, stream);
-        stream.write(new VarInt(inputs.size()).encode());
-        for (TransactionInput in : inputs)
-            in.bitcoinSerialize(stream);
-        stream.write(new VarInt(outputs.size()).encode());
-        for (TransactionOutput out : outputs)
-            out.bitcoinSerialize(stream);
-        uint32ToByteStreamLE(lockTime, stream);
-    }
+//    @Override
+//    protected void bitcoinSerializeToStream(OutputStream stream) throws IOException {
+//        uint32ToByteStreamLE(version, stream);
+//        stream.write(new VarInt(inputs.size()).encode());
+//        for (TransactionInput in : inputs)
+//            in.bitcoinSerialize(stream);
+//        stream.write(new VarInt(outputs.size()).encode());
+//        for (TransactionOutput out : outputs)
+//            out.bitcoinSerialize(stream);
+//        uint32ToByteStreamLE(lockTime, stream);
+//    }
 
 
     /**

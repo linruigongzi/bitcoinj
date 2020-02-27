@@ -37,13 +37,17 @@ public class VersionedChecksummedBytes implements Serializable, Cloneable, Compa
     protected final int version;
     protected byte[] bytes;
 
-    protected VersionedChecksummedBytes(String encoded) throws AddressFormatException {
+    protected VersionedChecksummedBytes(String encoded, int header) throws AddressFormatException {
         byte[] versionAndDataBytes = Base58.decodeChecked(encoded);
-        byte versionByte1 = versionAndDataBytes[0];
-        byte versionByte2 = versionAndDataBytes[1];
-        version = ((versionByte1 & 0xFF) << 8) | (versionByte2 & 0xFF);
-        bytes = new byte[versionAndDataBytes.length - 2];
-        System.arraycopy(versionAndDataBytes, 2, bytes, 0, versionAndDataBytes.length - 2);
+        int headerBytes = header > 255 ? 2 : 1;
+        int prefix = 0;
+        for (int i = 0; i < headerBytes; i++) {
+            prefix = (prefix << 8) | (versionAndDataBytes[i] & 0xFF);
+        }
+
+        version = prefix;
+        bytes = new byte[versionAndDataBytes.length - headerBytes];
+        System.arraycopy(versionAndDataBytes, headerBytes, bytes, 0, versionAndDataBytes.length - headerBytes);
     }
 
     protected VersionedChecksummedBytes(int version, byte[] bytes) {
@@ -59,12 +63,19 @@ public class VersionedChecksummedBytes implements Serializable, Cloneable, Compa
     public final String toBase58() {
         // A stringified buffer is:
         //   1 byte version + data bytes + 4 bytes check code (a truncated hash)
-        byte[] addressBytes = new byte[2 + bytes.length + 4];
-        addressBytes[0] = (byte) ((version >> 8) & 0xFF);
-        addressBytes[1] = (byte) (version & 0xFF);
-        System.arraycopy(bytes, 0, addressBytes, 2, bytes.length);
-        byte[] checksum = Sha256Hash.hashTwice(addressBytes, 0, bytes.length + 2);
-        System.arraycopy(checksum, 0, addressBytes, bytes.length + 2, 4);
+        int headerBytes = version > 255 ? 2 : 1;
+        byte[] addressBytes = new byte[headerBytes + bytes.length + 4];
+        if(headerBytes == 2) {
+            addressBytes[0] = (byte) ((version >> 8) & 0xFF);
+            addressBytes[1] = (byte) (version & 0xFF);
+        }
+        else {
+            addressBytes[0] = (byte) (version & 0xFF);
+        }
+
+        System.arraycopy(bytes, 0, addressBytes, headerBytes, bytes.length);
+        byte[] checksum = Sha256Hash.hashTwice(addressBytes, 0, bytes.length + headerBytes);
+        System.arraycopy(checksum, 0, addressBytes, bytes.length + headerBytes, 4);
         return Base58.encode(addressBytes);
     }
 
