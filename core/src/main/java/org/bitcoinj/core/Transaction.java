@@ -1128,7 +1128,12 @@ public class Transaction extends ChildMessage {
                     bosHashPrevouts.write(this.inputs.get(i).getOutpoint().getHash().getReversedBytes());
                     uint32ToByteStreamLE(this.inputs.get(i).getOutpoint().getIndex(), bosHashPrevouts);
                 }
-                hashPrevouts = Sha256Hash.hashTwice(bosHashPrevouts.toByteArray());
+                byte[] ZCASH_PREVOUTS_HASH_PERSONALIZATION =  {'Z','c','a','s','h','P','r','e','v','o','u','t','H','a','s','h'};
+                Blake2b blake2bPrevouts = new Blake2b(null, 32, null, ZCASH_PREVOUTS_HASH_PERSONALIZATION);
+                blake2bPrevouts.update(bosHashPrevouts.toByteArray(), 0, bosHashPrevouts.toByteArray().length);
+                blake2bPrevouts.digest(hashPrevouts, 0);
+
+//                hashPrevouts = Sha256Hash.hashTwice(bosHashPrevouts.toByteArray());
             }
 
             if (!anyoneCanPay && signAll) {
@@ -1136,7 +1141,13 @@ public class Transaction extends ChildMessage {
                 for (int i = 0; i < this.inputs.size(); ++i) {
                     uint32ToByteStreamLE(this.inputs.get(i).getSequenceNumber(), bosSequence);
                 }
-                hashSequence = Sha256Hash.hashTwice(bosSequence.toByteArray());
+
+                byte[] ZCASH_SEQUENCE_HASH_PERSONALIZATION =   {'Z','c','a','s','h','S','e','q','u','e','n','c','H','a','s','h'};
+                Blake2b blake2bSequence = new Blake2b(null, 32, null, ZCASH_SEQUENCE_HASH_PERSONALIZATION);
+                blake2bSequence.update(bosSequence.toByteArray(), 0, bosSequence.toByteArray().length);
+                blake2bSequence.digest(hashSequence, 0);
+
+//                hashSequence = Sha256Hash.hashTwice(bosSequence.toByteArray());
             }
 
             if (signAll) {
@@ -1149,7 +1160,12 @@ public class Transaction extends ChildMessage {
                     bosHashOutputs.write(new VarInt(this.outputs.get(i).getScriptBytes().length).encode());
                     bosHashOutputs.write(this.outputs.get(i).getScriptBytes());
                 }
-                hashOutputs = Sha256Hash.hashTwice(bosHashOutputs.toByteArray());
+                byte[] ZCASH_OUTPUTS_HASH_PERSONALIZATION =    {'Z','c','a','s','h','O','u','t','p','u','t','s','H','a','s','h'};
+                Blake2b blake2bOutputs = new Blake2b(null, 32, null, ZCASH_OUTPUTS_HASH_PERSONALIZATION);
+                blake2bOutputs.update(bosHashOutputs.toByteArray(), 0, bosHashOutputs.toByteArray().length);
+                blake2bOutputs.digest(hashOutputs, 0);
+
+//                hashOutputs = Sha256Hash.hashTwice(bosHashOutputs.toByteArray());
             } else if (basicSigHashType == SigHash.SINGLE.value && inputIndex < outputs.size()) {
                 ByteArrayOutputStream bosHashOutputs = new UnsafeByteArrayOutputStream(256);
                 uint64ToByteStreamLE(
@@ -1158,7 +1174,12 @@ public class Transaction extends ChildMessage {
                 );
                 bosHashOutputs.write(new VarInt(this.outputs.get(inputIndex).getScriptBytes().length).encode());
                 bosHashOutputs.write(this.outputs.get(inputIndex).getScriptBytes());
-                hashOutputs = Sha256Hash.hashTwice(bosHashOutputs.toByteArray());
+
+                byte[] ZCASH_OUTPUTS_HASH_PERSONALIZATION =    {'Z','c','a','s','h','O','u','t','p','u','t','s','H','a','s','h'};
+                Blake2b blake2bOutputs = new Blake2b(null, 32, null, ZCASH_OUTPUTS_HASH_PERSONALIZATION);
+                blake2bOutputs.update(bosHashOutputs.toByteArray(), 0, bosHashOutputs.toByteArray().length);
+                blake2bOutputs.digest(hashOutputs, 0);
+//                hashOutputs = Sha256Hash.hashTwice(bosHashOutputs.toByteArray());
             }
 
             // fOverwintered
@@ -1182,7 +1203,7 @@ public class Transaction extends ChildMessage {
 
 
             // ExpiryHeight 0
-            long expiryHeight = 0;
+            long expiryHeight = 0x000b5476;
             uint32ToByteStreamLE(expiryHeight, bos);
 
             // valueBalance
@@ -1208,7 +1229,7 @@ public class Transaction extends ChildMessage {
 
 
         byte[] personalization = new byte[16];
-        byte[] prefix = "ZcashSigHash".getBytes();
+        byte[] prefix = {'Z','c','a','s','h','S','i','g','H','a','s','h'};//"ZcashSigHash".getBytes();
         // Blossom 0x2bb40e60
         byte[] leConsensusBranchId = {(byte)0x60, (byte)0x0e, (byte)0xb4, (byte) 0x2b};
 
@@ -1246,7 +1267,7 @@ public class Transaction extends ChildMessage {
         uint32ToByteStreamLE(lockTime, stream);
 
         // ExpiryHeight 0
-        long expiryHeight = 0;
+        long expiryHeight = 0x000b5476;
         uint32ToByteStreamLE(expiryHeight, stream);
 
         // valueBalance
