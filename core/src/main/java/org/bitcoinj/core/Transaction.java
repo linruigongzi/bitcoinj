@@ -1203,7 +1203,7 @@ public class Transaction extends ChildMessage {
 
 
             // ExpiryHeight 0
-            long expiryHeight = 0x000b5476;
+            long expiryHeight = 0;//0x000b5476;
             uint32ToByteStreamLE(expiryHeight, bos);
 
             // valueBalance
@@ -1215,6 +1215,7 @@ public class Transaction extends ChildMessage {
 
             bos.write(inputs.get(inputIndex).getOutpoint().getHash().getReversedBytes());
             uint32ToByteStreamLE(inputs.get(inputIndex).getOutpoint().getIndex(), bos);
+            bos.write(new VarInt(scriptCode.length).encode());
             bos.write(scriptCode);
             uint64ToByteStreamLE(BigInteger.valueOf(prevValue.getValue()), bos);
             uint32ToByteStreamLE(inputs.get(inputIndex).getSequenceNumber(), bos);
@@ -1267,7 +1268,7 @@ public class Transaction extends ChildMessage {
         uint32ToByteStreamLE(lockTime, stream);
 
         // ExpiryHeight 0
-        long expiryHeight = 0x000b5476;
+        long expiryHeight = 0;//0x000b5476;
         uint32ToByteStreamLE(expiryHeight, stream);
 
         // valueBalance
